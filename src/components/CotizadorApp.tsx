@@ -17,12 +17,25 @@ export function CotizadorApp() {
   const [clientEmail, setClientEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [usingSupabase, setUsingSupabase] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchProducts().then((data) => {
-      if (data.length > 0) {
+    fetchProducts().then(({ products: data, configured, error }) => {
+      if (error) {
+        setConnectionError(error);
+        setUsingSupabase(false);
+        return;
+      }
+      if (configured && data.length > 0) {
         setProducts(data);
         setUsingSupabase(true);
+        setConnectionError(null);
+        return;
+      }
+      if (configured && data.length === 0) {
+        setConnectionError(
+          "Supabase conectado, pero no hay productos visibles. Ejecuta supabase/fix-permissions.sql en el SQL Editor."
+        );
       }
     });
   }, []);
@@ -66,10 +79,28 @@ export function CotizadorApp() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-      {!usingSupabase && (
+      {connectionError && (
+        <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="font-semibold">No se pudo cargar el catálogo de Supabase</p>
+          <p className="mt-1">{connectionError}</p>
+          <p className="mt-2 text-red-600">
+            Abre Supabase → SQL Editor, pega el contenido de{" "}
+            <code className="rounded bg-red-100 px-1">supabase/fix-permissions.sql</code>{" "}
+            y dale Run. Luego recarga esta página.
+          </p>
+        </div>
+      )}
+
+      {!usingSupabase && !connectionError && (
         <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-100/60 px-4 py-3 text-sm text-brand-700">
           Modo demo con productos de ejemplo. Conecta Supabase para usar tu
           catálogo real.
+        </div>
+      )}
+
+      {usingSupabase && (
+        <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          Conectado a Supabase — mostrando tu catálogo real.
         </div>
       )}
 

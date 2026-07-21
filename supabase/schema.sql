@@ -47,14 +47,21 @@ CREATE INDEX IF NOT EXISTS idx_products_active ON products(active);
 CREATE INDEX IF NOT EXISTS idx_quotes_created_at ON quotes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_quote_items_quote_id ON quote_items(quote_id);
 
+-- Permisos para la anon key (API pública)
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT SELECT ON TABLE products TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE quotes TO anon, authenticated;
+GRANT SELECT, INSERT ON TABLE quote_items TO anon, authenticated;
+
 -- Habilitar Row Level Security
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE quote_items ENABLE ROW LEVEL SECURITY;
 
--- Políticas: lectura pública de productos activos, escritura autenticada (ajusta según necesites)
+-- Políticas: lectura pública de productos activos
 CREATE POLICY "Productos activos visibles para todos"
   ON products FOR SELECT
+  TO anon, authenticated
   USING (active = true);
 
 CREATE POLICY "Insertar cotizaciones"

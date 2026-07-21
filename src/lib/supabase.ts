@@ -19,23 +19,43 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-export async function fetchProducts(): Promise<Product[]> {
+export type FetchProductsResult = {
+  products: Product[];
+  configured: boolean;
+  error: string | null;
+};
+
+export async function fetchProducts(): Promise<FetchProductsResult> {
   const supabase = getSupabase();
-  if (!supabase) return [];
+  if (!supabase) {
+    return {
+      products: [],
+      configured: false,
+      error: "Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local",
+    };
+  }
 
   const { data, error } = await supabase
     .from("products")
     .select("*")
     .eq("active", true)
-    .order("category")
-    .order("name");
+    .order("category", { ascending: true })
+    .order("name", { ascending: true });
 
   if (error) {
     console.error("Error fetching products:", error.message);
-    return [];
+    return {
+      products: [],
+      configured: true,
+      error: error.message,
+    };
   }
 
-  return (data ?? []) as Product[];
+  return {
+    products: (data ?? []) as Product[],
+    configured: true,
+    error: null,
+  };
 }
 
 export async function saveQuote(quote: {
