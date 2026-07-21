@@ -1,0 +1,11 @@
+# Mesana Care — Plantilla CSV para importar productos a Supabase
+# Guarda este archivo como productos.csv y usa Table Editor → Import
+name,description,price,category,sku,active
+Base Líquida Matte,Cobertura media-alta acabado mate,85000,Rostro,MC-BASE-001,true
+Corrector Creamy,Alta cobertura para ojeras,45000,Rostro,MC-CORR-002,true
+Paleta Sombras Nude,12 tonos neutros y shimmer,120000,Ojos,MC-SOMB-003,true
+Máscara de Pestañas Volumen,Volumen extremo sin grumos,55000,Ojos,MC-MASC-004,true
+Labial Líquido Mate,Larga duración no transfiere,38000,Labios,MC-LAB-005,true
+Brillo Labial Hidratante,Brillo suave con vitamina E,32000,Labios,MC-BRIL-006,true
+Rubor en Polvo,Color natural fácil difuminado,48000,Rostro,MC-RUB-007,true
+Kit Brochas Esenciales,Set de 5 brochas profesionales,95000,Accesorios,MC-BRO-008,true

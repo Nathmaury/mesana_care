@@ -1,0 +1,109 @@
+"use client";
+
+import { ClientForm } from "@/components/ClientForm";
+import { ProductCatalog } from "@/components/ProductCatalog";
+import { QuoteActions } from "@/components/QuoteActions";
+import { QuoteItemsEditor } from "@/components/QuoteItemsEditor";
+import { fetchProducts } from "@/lib/supabase";
+import { SAMPLE_PRODUCTS } from "@/lib/sample-products";
+import type { Product, QuoteItem } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
+
+export function CotizadorApp() {
+  const [products, setProducts] = useState<Product[]>(SAMPLE_PRODUCTS);
+  const [items, setItems] = useState<QuoteItem[]>([]);
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [notes, setNotes] = useState("");
+  const [usingSupabase, setUsingSupabase] = useState(false);
+
+  useEffect(() => {
+    fetchProducts().then((data) => {
+      if (data.length > 0) {
+        setProducts(data);
+        setUsingSupabase(true);
+      }
+    });
+  }, []);
+
+  const handleAddProduct = useCallback((product: Product) => {
+    setItems((prev) => {
+      const existing = prev.find((i) => i.product.id === product.id);
+      if (existing) {
+        return prev.map((i) =>
+          i.product.id === product.id
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
+        );
+      }
+      return [...prev, { product, quantity: 1, discountPercent: 0 }];
+    });
+  }, []);
+
+  const handleUpdateQuantity = useCallback((productId: string, quantity: number) => {
+    setItems((prev) =>
+      prev.map((i) =>
+        i.product.id === productId ? { ...i, quantity } : i
+      )
+    );
+  }, []);
+
+  const handleUpdateDiscount = useCallback(
+    (productId: string, discountPercent: number) => {
+      setItems((prev) =>
+        prev.map((i) =>
+          i.product.id === productId ? { ...i, discountPercent } : i
+        )
+      );
+    },
+    []
+  );
+
+  const handleRemoveItem = useCallback((productId: string) => {
+    setItems((prev) => prev.filter((i) => i.product.id !== productId));
+  }, []);
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      {!usingSupabase && (
+        <div className="mb-6 rounded-2xl border border-brand-200 bg-brand-100/60 px-4 py-3 text-sm text-brand-700">
+          Modo demo con productos de ejemplo. Conecta Supabase para usar tu
+          catálogo real.
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6">
+          <ClientForm
+            clientName={clientName}
+            clientPhone={clientPhone}
+            clientEmail={clientEmail}
+            notes={notes}
+            onClientNameChange={setClientName}
+            onClientPhoneChange={setClientPhone}
+            onClientEmailChange={setClientEmail}
+            onNotesChange={setNotes}
+          />
+          <ProductCatalog products={products} onAddProduct={handleAddProduct} />
+        </div>
+
+        <div className="space-y-6">
+          <QuoteItemsEditor
+            items={items}
+            onUpdateQuantity={handleUpdateQuantity}
+            onUpdateDiscount={handleUpdateDiscount}
+            onRemoveItem={handleRemoveItem}
+          />
+          <QuoteActions
+            clientName={clientName}
+            clientPhone={clientPhone}
+            clientEmail={clientEmail}
+            notes={notes}
+            items={items}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
