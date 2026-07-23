@@ -2,7 +2,7 @@
 
 import { exportQuoteAsImage, exportQuoteAsPdf } from "@/lib/export-quote";
 import { saveQuote } from "@/lib/supabase";
-import type { QuoteItem } from "@/lib/types";
+import type { PaymentStatus, QuoteItem } from "@/lib/types";
 import {
   calculateItemLine,
   calculateQuoteTotals,
@@ -23,6 +23,7 @@ type Props = {
   clientEmail: string;
   notes: string;
   items: QuoteItem[];
+  onSaved?: () => void;
 };
 
 export function QuoteActions({
@@ -31,6 +32,7 @@ export function QuoteActions({
   clientEmail,
   notes,
   items,
+  onSaved,
 }: Props) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -38,8 +40,13 @@ export function QuoteActions({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [paymentStatus, setPaymentStatus] =
+    useState<PaymentStatus>("pendiente");
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [amountPaid, setAmountPaid] = useState("");
 
   const canExport = clientName.trim().length > 0 && items.length > 0;
+  const totals = calculateQuoteTotals(items);
 
   const getFilename = () => {
     const slug = clientName.trim().replace(/\s+/g, "-").toLowerCase();
@@ -90,15 +97,10 @@ export function QuoteActions({
     setShowPreview(true);
     setMessage(null);
     try {
-      // Espera a que el preview esté montado en el DOM
       await waitForPreviewPaint();
       await new Promise((r) => setTimeout(r, 150));
-
       const el = previewRef.current;
-      if (!el) {
-        throw new Error("No se encontró la vista previa para capturar");
-      }
-
+      if (!el) throw new Error("No se encontró la vista previa para capturar");
       await exportQuoteAsImage(el, getFilename());
       setMessage("Imagen descargada correctamente");
     } catch (err) {
@@ -113,12 +115,27 @@ export function QuoteActions({
     }
   };
 
+  const resolveAmounts = () => {
+    if (paymentStatus === "pagado") {
+      return { paid: totals.total, owed: 0 };
+    }
+    if (paymentStatus === "pendiente") {
+      return { paid: 0, owed: totals.total };
+    }
+    const paid = Math.min(
+      totals.total,
+      Math.max(0, Number(amountPaid.replace(/\D/g, "")) || 0)
+    );
+    return { paid, owed: Math.max(0, totals.total - paid) };
+  };
+
   const handleSave = async () => {
     if (!canExport) return;
     setIsSaving(true);
-    const totals = calculateQuoteTotals(items);
+    setMessage(null);
+    const { paid, owed } = resolveAmounts();
 
-    const id = await saveQuote({
+    const result = await saveQuote({
       client_name: clientName,
       client_phone: clientPhone,
       client_email: clientEmail,
@@ -126,6 +143,10 @@ export function QuoteActions({
       subtotal: totals.subtotal,
       discount_total: totals.discountTotal,
       total: totals.total,
+      payment_status: paymentStatus,
+      amount_paid: paid,
+      amount_owed: owed,
+      payment_method: paymentMethod,
       items: items.map((item) => ({
         product_id: item.product.id,
         product_name: item.product.name,
@@ -136,11 +157,20 @@ export function QuoteActions({
       })),
     });
 
-    if (id) {
-      setSavedId(id);
-      setMessage("Cotización guardada en la base de datos");
+    if (result.id) {
+      setSavedId(result.id);
+      const stockNote =
+        paymentStatus === "pagado" || paymentStatus === "parcial"
+          ? " Inventario descontado."
+          : "";
+      setMessage(`Cotización guardada en el historial.${stockNote}`);
+      onSaved?.();
     } else {
-      setMessage("No se pudo guardar. Revisa la conexión con Supabase.");
+      setMessage(
+        result.error
+          ? `No se pudo guardar: ${result.error}. Ejecuta migrate-panel.sql en Supabase.`
+          : "No se pudo guardar. Revisa la conexión con Supabase."
+      );
     }
     setIsSaving(false);
   };
@@ -158,6 +188,69 @@ export function QuoteActions({
             generar la cotización.
           </p>
         )}
+
+        <div className="mb-4 space-y-3 rounded-2xl border border-brand-100 bg-brand-50/50 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-500">
+            Estado de pago al guardar
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(
+              [
+                ["pendiente", "Por pagar"],
+                ["parcial", "Pago parcial"],
+                ["pagado", "Pagado"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                disabled={!canExport}
+                onClick={() => setPaymentStatus(value)}
+                className={
+                  paymentStatus === value
+                    ? "rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
+                    : "rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm text-brand-700"
+                }
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-brand-600">
+                Método de pago
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Sin especificar</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Nequi">Nequi</option>
+                <option value="Daviplata">Daviplata</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+            {paymentStatus === "parcial" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-brand-600">
+                  Monto pagado
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                  placeholder={`Máx ${totals.total}`}
+                  className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm"
+                />
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <button
@@ -199,7 +292,7 @@ export function QuoteActions({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Guardar cotización
+            Guardar en historial
           </button>
 
           <button
@@ -220,7 +313,6 @@ export function QuoteActions({
         )}
       </section>
 
-      {/* Siempre montado cuando hay datos: necesario para capturar imagen */}
       {canExport && (
         <div
           className={
