@@ -47,31 +47,67 @@ export function QuoteActions({
     return `cotizacion-mesana-${slug}-${date}`;
   };
 
+  const waitForPreviewPaint = () =>
+    new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+
   const handleExportPdf = async () => {
-    if (!previewRef.current || !canExport) return;
+    if (!canExport) return;
     setIsExporting(true);
     setShowPreview(true);
-    await new Promise((r) => setTimeout(r, 300));
+    setMessage(null);
     try {
-      await exportQuoteAsPdf(previewRef.current, getFilename());
+      await exportQuoteAsPdf(
+        {
+          clientName,
+          clientPhone,
+          clientEmail,
+          notes,
+          items,
+          quoteNumber: savedId ?? undefined,
+        },
+        getFilename()
+      );
       setMessage("PDF descargado correctamente");
-    } catch {
-      setMessage("Error al generar el PDF");
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err instanceof Error
+          ? `Error al generar el PDF: ${err.message}`
+          : "Error al generar el PDF"
+      );
     } finally {
       setIsExporting(false);
     }
   };
 
   const handleExportImage = async () => {
-    if (!previewRef.current || !canExport) return;
+    if (!canExport) return;
     setIsExporting(true);
     setShowPreview(true);
-    await new Promise((r) => setTimeout(r, 300));
+    setMessage(null);
     try {
-      await exportQuoteAsImage(previewRef.current, getFilename());
+      // Espera a que el preview esté montado en el DOM
+      await waitForPreviewPaint();
+      await new Promise((r) => setTimeout(r, 150));
+
+      const el = previewRef.current;
+      if (!el) {
+        throw new Error("No se encontró la vista previa para capturar");
+      }
+
+      await exportQuoteAsImage(el, getFilename());
       setMessage("Imagen descargada correctamente");
-    } catch {
-      setMessage("Error al generar la imagen");
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err instanceof Error
+          ? `Error al generar la imagen: ${err.message}`
+          : "Error al generar la imagen"
+      );
     } finally {
       setIsExporting(false);
     }
@@ -104,7 +140,7 @@ export function QuoteActions({
       setSavedId(id);
       setMessage("Cotización guardada en la base de datos");
     } else {
-      setMessage("Modo demo: conecta Supabase para guardar cotizaciones");
+      setMessage("No se pudo guardar. Revisa la conexión con Supabase.");
     }
     setIsSaving(false);
   };
@@ -127,10 +163,7 @@ export function QuoteActions({
           <button
             type="button"
             disabled={!canExport || isExporting}
-            onClick={() => {
-              setShowPreview(true);
-              handleExportPdf();
-            }}
+            onClick={handleExportPdf}
             className="flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isExporting ? (
@@ -144,10 +177,7 @@ export function QuoteActions({
           <button
             type="button"
             disabled={!canExport || isExporting}
-            onClick={() => {
-              setShowPreview(true);
-              handleExportImage();
-            }}
+            onClick={handleExportImage}
             className="flex items-center justify-center gap-2 rounded-xl border-2 border-brand-400 bg-brand-50 px-4 py-3 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isExporting ? (
@@ -190,8 +220,16 @@ export function QuoteActions({
         )}
       </section>
 
-      {showPreview && canExport && (
-        <div className="mt-6 overflow-hidden rounded-3xl border border-brand-200 shadow-xl">
+      {/* Siempre montado cuando hay datos: necesario para capturar imagen */}
+      {canExport && (
+        <div
+          className={
+            showPreview
+              ? "mt-6 overflow-hidden rounded-3xl border border-brand-200 shadow-xl"
+              : "pointer-events-none fixed top-0 left-[-10000px] w-[794px] opacity-0"
+          }
+          aria-hidden={!showPreview}
+        >
           <QuotePreview
             ref={previewRef}
             clientName={clientName}

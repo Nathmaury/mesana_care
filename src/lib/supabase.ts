@@ -51,8 +51,16 @@ export async function fetchProducts(): Promise<FetchProductsResult> {
     };
   }
 
+  const products = (data ?? []).map((row) => ({
+    ...row,
+    // Postgres numeric a veces llega como string
+    price: Number(row.price) || 0,
+    cost_price: row.cost_price != null ? Number(row.cost_price) : null,
+    stock: row.stock != null ? Number(row.stock) : null,
+  })) as Product[];
+
   return {
-    products: (data ?? []) as Product[],
+    products,
     configured: true,
     error: null,
   };

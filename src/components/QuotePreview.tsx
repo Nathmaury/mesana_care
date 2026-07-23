@@ -9,6 +9,18 @@ import {
 } from "@/lib/types";
 import { forwardRef } from "react";
 
+/** Colores hex fijos: html-to-image falla con oklch de Tailwind v4 */
+const c = {
+  white: "#ffffff",
+  text: "#4c1d95",
+  muted: "#7e22ce",
+  soft: "#a855f7",
+  line: "#e9d5ff",
+  lineSoft: "#f3e8ff",
+  bg: "#faf5ff",
+  green: "#16a34a",
+};
+
 type Props = {
   clientName: string;
   clientPhone: string;
@@ -40,68 +52,204 @@ export const QuotePreview = forwardRef<HTMLDivElement, Props>(
     return (
       <div
         ref={ref}
-        className="mx-auto w-full max-w-[210mm] bg-white p-6 text-brand-900 sm:p-8"
-        style={{ fontFamily: "system-ui, sans-serif" }}
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          backgroundColor: c.white,
+          color: c.text,
+          width: "794px",
+          maxWidth: "100%",
+          margin: "0 auto",
+          padding: "32px",
+          boxSizing: "border-box",
+        }}
       >
-        {/* Header */}
-        <div className="mb-6 flex items-start justify-between border-b-2 border-brand-200 pb-4">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            borderBottom: `2px solid ${c.line}`,
+            paddingBottom: "16px",
+            marginBottom: "24px",
+          }}
+        >
           <div>
-            <h1 className="text-2xl font-bold text-brand-700">{BRAND.name}</h1>
-            <p className="text-sm text-brand-500">{BRAND.tagline}</p>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "24px",
+                fontWeight: 700,
+                color: "#7e22ce",
+              }}
+            >
+              {BRAND.name}
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: c.soft }}>
+              {BRAND.tagline}
+            </p>
           </div>
-          <div className="text-right text-sm">
-            <p className="font-bold uppercase tracking-wider text-brand-600">
+          <div style={{ textAlign: "right", fontSize: "13px" }}>
+            <p
+              style={{
+                margin: 0,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: c.muted,
+              }}
+            >
               Cotización
             </p>
             {quoteNumber && (
-              <p className="text-brand-800">No. {quoteNumber.slice(0, 8)}</p>
+              <p style={{ margin: "4px 0 0", color: c.text }}>
+                No. {quoteNumber.slice(0, 8)}
+              </p>
             )}
-            <p className="text-brand-600">{date}</p>
+            <p style={{ margin: "4px 0 0", color: c.muted }}>{date}</p>
           </div>
         </div>
 
-        {/* Client info */}
-        <div className="mb-6 rounded-xl bg-brand-50 p-4">
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-brand-500">
+        <div
+          style={{
+            backgroundColor: c.bg,
+            borderRadius: "12px",
+            padding: "16px",
+            marginBottom: "24px",
+          }}
+        >
+          <h2
+            style={{
+              margin: "0 0 8px",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: c.soft,
+            }}
+          >
             Cliente
           </h2>
-          <p className="font-semibold">{clientName || "—"}</p>
-          {clientPhone && <p className="text-sm text-brand-700">{clientPhone}</p>}
-          {clientEmail && <p className="text-sm text-brand-700">{clientEmail}</p>}
+          <p style={{ margin: 0, fontWeight: 600 }}>{clientName || "—"}</p>
+          {clientPhone && (
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: c.muted }}>
+              {clientPhone}
+            </p>
+          )}
+          {clientEmail && (
+            <p style={{ margin: "4px 0 0", fontSize: "13px", color: c.muted }}>
+              {clientEmail}
+            </p>
+          )}
         </div>
 
-        {/* Items table */}
-        <table className="mb-6 w-full text-sm">
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            marginBottom: "24px",
+            fontSize: "13px",
+          }}
+        >
           <thead>
-            <tr className="border-b border-brand-200 text-left text-xs uppercase tracking-wide text-brand-500">
-              <th className="pb-2 pr-2">Producto</th>
-              <th className="pb-2 pr-2 text-center">Cant.</th>
-              <th className="pb-2 pr-2 text-right">Precio</th>
-              <th className="pb-2 pr-2 text-right">Desc.</th>
-              <th className="pb-2 text-right">Total</th>
+            <tr style={{ borderBottom: `1px solid ${c.line}`, textAlign: "left" }}>
+              <th
+                style={{
+                  paddingBottom: "8px",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  color: c.soft,
+                }}
+              >
+                Producto
+              </th>
+              <th
+                style={{
+                  paddingBottom: "8px",
+                  textAlign: "center",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  color: c.soft,
+                }}
+              >
+                Cant.
+              </th>
+              <th
+                style={{
+                  paddingBottom: "8px",
+                  textAlign: "right",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  color: c.soft,
+                }}
+              >
+                Precio
+              </th>
+              <th
+                style={{
+                  paddingBottom: "8px",
+                  textAlign: "right",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  color: c.soft,
+                }}
+              >
+                Desc.
+              </th>
+              <th
+                style={{
+                  paddingBottom: "8px",
+                  textAlign: "right",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  color: c.soft,
+                }}
+              >
+                Total
+              </th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => {
               const line = calculateItemLine(item);
               return (
-                <tr key={item.product.id} className="border-b border-brand-100">
-                  <td className="py-2.5 pr-2">
-                    <p className="font-medium">{item.product.name}</p>
+                <tr
+                  key={item.product.id}
+                  style={{ borderBottom: `1px solid ${c.lineSoft}` }}
+                >
+                  <td style={{ padding: "10px 8px 10px 0" }}>
+                    <p style={{ margin: 0, fontWeight: 600 }}>
+                      {item.product.name}
+                    </p>
                     {item.product.sku && (
-                      <p className="text-xs text-brand-500">{item.product.sku}</p>
+                      <p
+                        style={{
+                          margin: "2px 0 0",
+                          fontSize: "11px",
+                          color: c.soft,
+                        }}
+                      >
+                        {item.product.sku}
+                      </p>
                     )}
                   </td>
-                  <td className="py-2.5 pr-2 text-center">{item.quantity}</td>
-                  <td className="py-2.5 pr-2 text-right">
+                  <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                    {item.quantity}
+                  </td>
+                  <td style={{ padding: "10px 8px", textAlign: "right" }}>
                     {formatCurrency(item.product.price)}
                   </td>
-                  <td className="py-2.5 pr-2 text-right">
+                  <td style={{ padding: "10px 8px", textAlign: "right" }}>
                     {item.discountPercent > 0
                       ? `${item.discountPercent}%`
                       : "—"}
                   </td>
-                  <td className="py-2.5 text-right font-medium">
+                  <td
+                    style={{
+                      padding: "10px 0 10px 8px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                    }}
+                  >
                     {formatCurrency(line.total)}
                   </td>
                 </tr>
@@ -110,38 +258,95 @@ export const QuotePreview = forwardRef<HTMLDivElement, Props>(
           </tbody>
         </table>
 
-        {/* Totals */}
-        <div className="mb-6 ml-auto max-w-xs space-y-1 text-sm">
-          <div className="flex justify-between text-brand-600">
+        <div
+          style={{
+            marginLeft: "auto",
+            maxWidth: "240px",
+            marginBottom: "24px",
+            fontSize: "13px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              color: c.muted,
+              marginBottom: "4px",
+            }}
+          >
             <span>Subtotal</span>
             <span>{formatCurrency(totals.subtotal)}</span>
           </div>
           {totals.discountTotal > 0 && (
-            <div className="flex justify-between text-green-600">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                color: c.green,
+                marginBottom: "4px",
+              }}
+            >
               <span>Descuentos</span>
               <span>-{formatCurrency(totals.discountTotal)}</span>
             </div>
           )}
-          <div className="flex justify-between border-t border-brand-200 pt-2 text-lg font-bold text-brand-800">
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              borderTop: `1px solid ${c.line}`,
+              paddingTop: "8px",
+              fontSize: "18px",
+              fontWeight: 700,
+              color: c.text,
+            }}
+          >
             <span>Total</span>
             <span>{formatCurrency(totals.total)}</span>
           </div>
         </div>
 
         {notes && (
-          <div className="mb-6 rounded-xl border border-brand-100 bg-brand-50/50 p-4">
-            <h3 className="mb-1 text-xs font-bold uppercase text-brand-500">
+          <div
+            style={{
+              borderRadius: "12px",
+              border: `1px solid ${c.lineSoft}`,
+              backgroundColor: c.bg,
+              padding: "16px",
+              marginBottom: "24px",
+            }}
+          >
+            <h3
+              style={{
+                margin: "0 0 4px",
+                fontSize: "11px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+                color: c.soft,
+              }}
+            >
               Notas
             </h3>
-            <p className="text-sm text-brand-700">{notes}</p>
+            <p style={{ margin: 0, fontSize: "13px", color: c.muted }}>
+              {notes}
+            </p>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="border-t border-brand-200 pt-4 text-center text-xs text-brand-500">
-          <p>{BRAND.phone} · {BRAND.email}</p>
-          <p className="mt-1">{BRAND.instagram}</p>
-          <p className="mt-2 italic">
+        <div
+          style={{
+            borderTop: `1px solid ${c.line}`,
+            paddingTop: "16px",
+            textAlign: "center",
+            fontSize: "11px",
+            color: c.soft,
+          }}
+        >
+          <p style={{ margin: 0 }}>
+            {BRAND.phone} · {BRAND.email}
+          </p>
+          <p style={{ margin: "4px 0 0" }}>{BRAND.instagram}</p>
+          <p style={{ margin: "8px 0 0", fontStyle: "italic" }}>
             Cotización válida por 7 días. Precios sujetos a disponibilidad.
           </p>
         </div>

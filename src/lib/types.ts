@@ -3,9 +3,12 @@ export type Product = {
   name: string;
   description: string | null;
   price: number;
+  cost_price?: number | null;
+  stock?: number | null;
   category: string;
   sku: string | null;
   image_url: string | null;
+  supplier?: string | null;
   active: boolean;
 };
 
