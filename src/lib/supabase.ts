@@ -4,6 +4,7 @@ import type {
   Product,
   QuoteItemRecord,
   QuoteRecord,
+  SaleRecord,
 } from "./types";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -287,4 +288,54 @@ export async function updateQuotePayment(params: {
   }
 
   return null;
+}
+
+export async function fetchSales(): Promise<{
+  sales: SaleRecord[];
+  error: string | null;
+}> {
+  const supabase = getSupabase();
+  if (!supabase) return { sales: [], error: "Supabase no configurado" };
+
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) return { sales: [], error: error.message };
+
+  const sales = (data ?? []).map((row) => ({
+    ...row,
+    quantity: Number(row.quantity) || 0,
+    unit_price: Number(row.unit_price) || 0,
+    total: Number(row.total) || 0,
+    amount_paid: Number(row.amount_paid) || 0,
+    amount_owed: Number(row.amount_owed) || 0,
+    status: (row.status ?? "pendiente") as PaymentStatus,
+  })) as SaleRecord[];
+
+  return { sales, error: null };
+}
+
+export async function updateSalePayment(params: {
+  saleId: string;
+  status: PaymentStatus;
+  amount_paid: number;
+  amount_owed: number;
+  payment_method: string;
+}): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "Supabase no configurado";
+
+  const { error } = await supabase
+    .from("sales")
+    .update({
+      status: params.status,
+      amount_paid: params.amount_paid,
+      amount_owed: params.amount_owed,
+      payment_method: params.payment_method || null,
+    })
+    .eq("id", params.saleId);
+
+  return error?.message ?? null;
 }

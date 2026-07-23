@@ -49,6 +49,25 @@ export type QuoteItemRecord = {
   line_total: number;
 };
 
+export type SaleRecord = {
+  id: string;
+  quote_id: string | null;
+  product_id: string | null;
+  product_name: string;
+  client_name: string;
+  client_phone: string | null;
+  quantity: number;
+  unit_price: number;
+  total: number;
+  amount_paid: number;
+  amount_owed: number;
+  payment_method: string | null;
+  status: PaymentStatus;
+  sale_date: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
 export type Quote = {
   id?: string;
   clientName: string;

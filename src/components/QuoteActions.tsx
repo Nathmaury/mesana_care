@@ -131,6 +131,13 @@ export function QuoteActions({
 
   const handleSave = async () => {
     if (!canExport) return;
+    if (
+      (paymentStatus === "pagado" || paymentStatus === "parcial") &&
+      !paymentMethod
+    ) {
+      setMessage("Elige si paga por Nequi o en Efectivo");
+      return;
+    }
     setIsSaving(true);
     setMessage(null);
     const { paid, owed } = resolveAmounts();
@@ -205,7 +212,10 @@ export function QuoteActions({
                 key={value}
                 type="button"
                 disabled={!canExport}
-                onClick={() => setPaymentStatus(value)}
+                onClick={() => {
+                  setPaymentStatus(value);
+                  if (value === "pendiente") setPaymentMethod("");
+                }}
                 className={
                   paymentStatus === value
                     ? "rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white"
@@ -216,40 +226,56 @@ export function QuoteActions({
               </button>
             ))}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+
+          {(paymentStatus === "pagado" || paymentStatus === "parcial") && (
+            <div>
+              <p className="mb-2 text-xs font-medium text-brand-600">
+                ¿Cómo va a pagar?
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={!canExport}
+                  onClick={() => setPaymentMethod("Nequi")}
+                  className={
+                    paymentMethod === "Nequi"
+                      ? "rounded-xl bg-purple-600 px-3 py-3 text-sm font-semibold text-white"
+                      : "rounded-xl border border-purple-200 bg-white px-3 py-3 text-sm font-medium text-purple-700"
+                  }
+                >
+                  Nequi
+                </button>
+                <button
+                  type="button"
+                  disabled={!canExport}
+                  onClick={() => setPaymentMethod("Efectivo")}
+                  className={
+                    paymentMethod === "Efectivo"
+                      ? "rounded-xl bg-green-600 px-3 py-3 text-sm font-semibold text-white"
+                      : "rounded-xl border border-green-200 bg-white px-3 py-3 text-sm font-medium text-green-700"
+                  }
+                >
+                  Efectivo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {paymentStatus === "parcial" && (
             <div>
               <label className="mb-1 block text-xs font-medium text-brand-600">
-                Método de pago
+                Monto pagado
               </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
+              <input
+                type="text"
+                inputMode="numeric"
+                value={amountPaid}
+                onChange={(e) => setAmountPaid(e.target.value)}
+                placeholder={`Máx ${totals.total}`}
                 className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">Sin especificar</option>
-                <option value="Efectivo">Efectivo</option>
-                <option value="Nequi">Nequi</option>
-                <option value="Daviplata">Daviplata</option>
-                <option value="Transferencia">Transferencia</option>
-                <option value="Otro">Otro</option>
-              </select>
+              />
             </div>
-            {paymentStatus === "parcial" && (
-              <div>
-                <label className="mb-1 block text-xs font-medium text-brand-600">
-                  Monto pagado
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={amountPaid}
-                  onChange={(e) => setAmountPaid(e.target.value)}
-                  placeholder={`Máx ${totals.total}`}
-                  className="w-full rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm"
-                />
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">

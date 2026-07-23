@@ -2,9 +2,11 @@
 
 import {
   fetchQuotes,
+  fetchSales,
   updateQuotePayment,
+  updateSalePayment,
 } from "@/lib/supabase";
-import type { PaymentStatus, QuoteRecord } from "@/lib/types";
+import type { PaymentStatus, QuoteRecord, SaleRecord } from "@/lib/types";
 import {
   formatCurrency,
   paymentStatusLabel,
@@ -23,8 +25,12 @@ function statusClass(status: PaymentStatus) {
   }
 }
 
+type View = "ventas" | "cotizaciones";
+
 export function HistoryPanel() {
+  const [view, setView] = useState<View>("ventas");
   const [quotes, setQuotes] = useState<QuoteRecord[]>([]);
+  const [sales, setSales] = useState<SaleRecord[]>([]);
   const [filter, setFilter] = useState<"todos" | PaymentStatus>("todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +40,12 @@ export function HistoryPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { quotes: data, error: err } = await fetchQuotes();
-    if (err) setError(err);
-    setQuotes(data);
+    const [q, s] = await Promise.all([fetchQuotes(), fetchSales()]);
+    if (q.error && s.error) setError(q.error);
+    else if (s.error) setError(s.error);
+    else if (q.error) setError(q.error);
+    setQuotes(q.quotes);
+    setSales(s.sales);
     setLoading(false);
   }, []);
 
@@ -44,24 +53,50 @@ export function HistoryPanel() {
     load();
   }, [load]);
 
-  const filtered = useMemo(() => {
+  const filteredSales = useMemo(() => {
+    if (filter === "todos") return sales;
+    return sales.filter((s) => s.status === filter);
+  }, [sales, filter]);
+
+  const filteredQuotes = useMemo(() => {
     if (filter === "todos") return quotes;
     return quotes.filter((q) => q.payment_status === filter);
   }, [quotes, filter]);
 
-  const totals = useMemo(() => {
-    return quotes.reduce(
-      (acc, q) => ({
+  const saleTotals = useMemo(() => {
+    return sales.reduce(
+      (acc, s) => ({
         count: acc.count + 1,
-        sold: acc.sold + q.total,
-        paid: acc.paid + q.amount_paid,
-        owed: acc.owed + q.amount_owed,
+        sold: acc.sold + s.total,
+        paid: acc.paid + s.amount_paid,
+        owed: acc.owed + s.amount_owed,
       }),
       { count: 0, sold: 0, paid: 0, owed: 0 }
     );
-  }, [quotes]);
+  }, [sales]);
 
-  const markPaid = async (quote: QuoteRecord) => {
+  const markSalePaid = async (sale: SaleRecord, method: "Nequi" | "Efectivo") => {
+    setUpdatingId(sale.id);
+    setMessage(null);
+    const err = await updateSalePayment({
+      saleId: sale.id,
+      status: "pagado",
+      amount_paid: sale.total,
+      amount_owed: 0,
+      payment_method: method,
+    });
+    if (err) setMessage(`Error: ${err}`);
+    else {
+      setMessage(`Venta de ${sale.client_name} marcada como pagada por ${method}`);
+      await load();
+    }
+    setUpdatingId(null);
+  };
+
+  const markQuotePaid = async (
+    quote: QuoteRecord,
+    method: "Nequi" | "Efectivo"
+  ) => {
     setUpdatingId(quote.id);
     setMessage(null);
     const applyStock = !quote.stock_applied;
@@ -70,42 +105,19 @@ export function HistoryPanel() {
       payment_status: "pagado",
       amount_paid: quote.total,
       amount_owed: 0,
-      payment_method: quote.payment_method ?? "Efectivo",
+      payment_method: method,
       applyStock,
-      items: quote.quote_items ?? [],
-      client_name: quote.client_name,
-      client_phone: quote.client_phone,
-    });
-    if (err) {
-      setMessage(`Error: ${err}`);
-    } else {
-      setMessage(
-        applyStock
-          ? "Marcado como pagado e inventario descontado"
-          : "Marcado como pagado"
-      );
-      await load();
-    }
-    setUpdatingId(null);
-  };
-
-  const markPending = async (quote: QuoteRecord) => {
-    setUpdatingId(quote.id);
-    setMessage(null);
-    const err = await updateQuotePayment({
-      quoteId: quote.id,
-      payment_status: "pendiente",
-      amount_paid: 0,
-      amount_owed: quote.total,
-      payment_method: quote.payment_method ?? "",
-      applyStock: false,
       items: quote.quote_items ?? [],
       client_name: quote.client_name,
       client_phone: quote.client_phone,
     });
     if (err) setMessage(`Error: ${err}`);
     else {
-      setMessage("Marcado como por pagar");
+      setMessage(
+        applyStock
+          ? `Cotización marcada pagada por ${method} e inventario descontado`
+          : `Cotización marcada pagada por ${method}`
+      );
       await load();
     }
     setUpdatingId(null);
@@ -114,17 +126,38 @@ export function HistoryPanel() {
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-4">
-        <StatCard label="Cotizaciones" value={String(totals.count)} />
-        <StatCard label="Total cotizado" value={formatCurrency(totals.sold)} />
-        <StatCard label="Cobrado" value={formatCurrency(totals.paid)} />
-        <StatCard label="Por cobrar" value={formatCurrency(totals.owed)} />
+        <StatCard label="Ventas" value={String(saleTotals.count)} />
+        <StatCard label="Total vendido" value={formatCurrency(saleTotals.sold)} />
+        <StatCard label="Cobrado" value={formatCurrency(saleTotals.paid)} />
+        <StatCard label="Por cobrar" value={formatCurrency(saleTotals.owed)} />
       </div>
 
       <section className="rounded-3xl border border-brand-200/70 bg-white/90 p-4 shadow-lg shadow-brand-200/30 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-brand-800">
-            Historial de cotizaciones
-          </h2>
+          <div className="flex gap-2 rounded-xl bg-brand-50 p-1">
+            <button
+              type="button"
+              onClick={() => setView("ventas")}
+              className={
+                view === "ventas"
+                  ? "rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white"
+                  : "rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700"
+              }
+            >
+              Ventas / pagos
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("cotizaciones")}
+              className={
+                view === "cotizaciones"
+                  ? "rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white"
+                  : "rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700"
+              }
+            >
+              Cotizaciones
+            </button>
+          </div>
           <button
             type="button"
             onClick={load}
@@ -139,8 +172,7 @@ export function HistoryPanel() {
           {(
             [
               ["todos", "Todos"],
-              ["pendiente", "Por pagar"],
-              ["parcial", "Parcial"],
+              ["pendiente", "Por pagar (DEBE)"],
               ["pagado", "Pagado"],
             ] as const
           ).map(([id, label]) => (
@@ -166,7 +198,8 @@ export function HistoryPanel() {
         )}
         {error && (
           <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}. Ejecuta <code>supabase/migrate-panel.sql</code> en Supabase.
+            {error}. Ejecuta <code>migrate-panel.sql</code> y{" "}
+            <code>seed-from-pagos.sql</code> en Supabase.
           </p>
         )}
 
@@ -175,13 +208,88 @@ export function HistoryPanel() {
             <Loader2 className="h-5 w-5 animate-spin" />
             Cargando historial…
           </div>
-        ) : filtered.length === 0 ? (
+        ) : view === "ventas" ? (
+          filteredSales.length === 0 ? (
+            <p className="py-10 text-center text-sm text-brand-500">
+              No hay ventas. Ejecuta seed-from-pagos.sql o registra ventas desde
+              cotizaciones.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {filteredSales.map((sale) => (
+                <article
+                  key={sale.id}
+                  className="rounded-2xl border border-brand-100 bg-brand-50/40 p-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-brand-900">
+                        {sale.client_name}
+                      </p>
+                      <p className="text-sm text-brand-700">
+                        {sale.quantity}× {sale.product_name}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(sale.status)}`}
+                    >
+                      {paymentStatusLabel(sale.status)}
+                      {sale.payment_method ? ` · ${sale.payment_method}` : ""}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-brand-200/60 pt-3">
+                    <div className="text-sm">
+                      <p className="font-bold text-brand-800">
+                        {formatCurrency(sale.total)}
+                      </p>
+                      {sale.amount_owed > 0 && (
+                        <p className="text-rose-600">
+                          Debe {formatCurrency(sale.amount_owed)}
+                        </p>
+                      )}
+                      {sale.amount_paid > 0 && sale.status === "pagado" && (
+                        <p className="text-xs text-green-700">
+                          Pagó {formatCurrency(sale.amount_paid)}
+                        </p>
+                      )}
+                    </div>
+                    {sale.status !== "pagado" && (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          disabled={updatingId === sale.id}
+                          onClick={() => markSalePaid(sale, "Nequi")}
+                          className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          {updatingId === sale.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            "Pagó Nequi"
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingId === sale.id}
+                          onClick={() => markSalePaid(sale, "Efectivo")}
+                          className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Pagó Efectivo
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )
+        ) : filteredQuotes.length === 0 ? (
           <p className="py-10 text-center text-sm text-brand-500">
-            Aún no hay cotizaciones en este filtro.
+            Aún no hay cotizaciones guardadas.
           </p>
         ) : (
           <div className="space-y-3">
-            {filtered.map((quote) => (
+            {filteredQuotes.map((quote) => (
               <article
                 key={quote.id}
                 className="rounded-2xl border border-brand-100 bg-brand-50/40 p-4"
@@ -193,13 +301,13 @@ export function HistoryPanel() {
                     </p>
                     <p className="text-xs text-brand-500">
                       {new Date(quote.created_at).toLocaleString("es-CO")}
-                      {quote.client_phone ? ` · ${quote.client_phone}` : ""}
                     </p>
                   </div>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(quote.payment_status)}`}
                   >
                     {paymentStatusLabel(quote.payment_status)}
+                    {quote.payment_method ? ` · ${quote.payment_method}` : ""}
                   </span>
                 </div>
 
@@ -224,38 +332,27 @@ export function HistoryPanel() {
                         Debe {formatCurrency(quote.amount_owed)}
                       </p>
                     )}
-                    {quote.payment_method && (
-                      <p className="text-xs text-brand-500">
-                        {quote.payment_method}
-                      </p>
-                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {quote.payment_status !== "pagado" && (
+                  {quote.payment_status !== "pagado" && (
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         disabled={updatingId === quote.id}
-                        onClick={() => markPaid(quote)}
+                        onClick={() => markQuotePaid(quote, "Nequi")}
+                        className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                      >
+                        Pagó Nequi
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === quote.id}
+                        onClick={() => markQuotePaid(quote, "Efectivo")}
                         className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                       >
-                        {updatingId === quote.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          "Marcar pagado"
-                        )}
+                        Pagó Efectivo
                       </button>
-                    )}
-                    {quote.payment_status !== "pendiente" && (
-                      <button
-                        type="button"
-                        disabled={updatingId === quote.id}
-                        onClick={() => markPending(quote)}
-                        className="rounded-xl border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 disabled:opacity-50"
-                      >
-                        Por pagar
-                      </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}
