@@ -84,6 +84,11 @@ export function ProductCatalog({ products, onAddProduct }: Props) {
                 <p className="mt-2 text-sm font-bold text-brand-700">
                   {formatCurrency(product.price)}
                 </p>
+                {product.stock != null && (
+                  <p className="mt-0.5 text-xs text-brand-500">
+                    Stock: {product.stock}
+                  </p>
+                )}
               </div>
               <button
                 type="button"

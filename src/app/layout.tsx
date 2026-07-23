@@ -17,7 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Mesana Care — Cotizador",
   description:
-    "Cotizador de maquillaje Mesana Care. Crea y descarga cotizaciones en PDF o imagen.",
+    "Cotizador de maquillaje Mesana Care. Makeup Store — crea y descarga cotizaciones en PDF o imagen.",
+  icons: {
+    icon: "/logo-icon.png",
+    apple: "/logo-icon.png",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

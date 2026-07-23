@@ -29,6 +29,22 @@ function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
+async function loadLogoDataUrl(): Promise<string | null> {
+  try {
+    const res = await fetch(BRAND.logoHorizontal);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function exportQuoteAsImage(
   element: HTMLElement,
   filename: string
@@ -77,17 +93,23 @@ export async function exportQuoteAsPdf(
     }
   };
 
-  // Header
-  pdf.setTextColor(126, 34, 206); // brand-700
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
-  pdf.text(BRAND.name, margin, y);
-  y += 6;
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  pdf.setTextColor(147, 51, 234);
-  pdf.text(BRAND.tagline, margin, y);
+  // Header con logo
+  const logoDataUrl = await loadLogoDataUrl();
+  if (logoDataUrl) {
+    pdf.addImage(logoDataUrl, "PNG", margin, y - 2, 52, 16);
+    y += 16;
+  } else {
+    pdf.setTextColor(126, 34, 206);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(18);
+    pdf.text(BRAND.name, margin, y);
+    y += 6;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(147, 51, 234);
+    pdf.text(BRAND.tagline, margin, y);
+    y += 4;
+  }
 
   const date = new Date().toLocaleDateString("es-CO", {
     year: "numeric",
@@ -111,7 +133,7 @@ export async function exportQuoteAsPdf(
     align: "right",
   });
 
-  y += 10;
+  y += 6;
   pdf.setDrawColor(233, 213, 255);
   pdf.setLineWidth(0.5);
   pdf.line(margin, y, pageWidth - margin, y);

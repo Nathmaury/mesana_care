@@ -1,7 +1,7 @@
 {
   "name": "Mesana Care — Cotizador",
   "short_name": "Mesana Care",
-  "description": "Cotizador de maquillaje Mesana Care",
+  "description": "Cotizador de maquillaje Mesana Care — Makeup Store",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#faf5ff",
@@ -9,9 +9,15 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/logo-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-vertical.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

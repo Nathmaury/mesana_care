@@ -71,24 +71,26 @@ export const QuotePreview = forwardRef<HTMLDivElement, Props>(
             borderBottom: `2px solid ${c.line}`,
             paddingBottom: "16px",
             marginBottom: "24px",
+            gap: "16px",
           }}
         >
           <div>
-            <h1
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={BRAND.logoHorizontal}
+              alt={BRAND.name}
+              width={220}
+              height={64}
               style={{
-                margin: 0,
-                fontSize: "24px",
-                fontWeight: 700,
-                color: "#7e22ce",
+                display: "block",
+                width: "220px",
+                height: "auto",
+                maxWidth: "100%",
               }}
-            >
-              {BRAND.name}
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: "13px", color: c.soft }}>
-              {BRAND.tagline}
-            </p>
+              crossOrigin="anonymous"
+            />
           </div>
-          <div style={{ textAlign: "right", fontSize: "13px" }}>
+          <div style={{ textAlign: "right", fontSize: "13px", flexShrink: 0 }}>
             <p
               style={{
                 margin: 0,
