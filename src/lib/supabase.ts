@@ -140,30 +140,34 @@ export async function saveQuote(
     console.error("Error saving quote items:", itemsError.message);
   }
 
-  // Registrar ventas y descontar stock si ya hay pago (total o parcial)
+  // Siempre registra en ventas/pagos (aunque esté por pagar)
+  const salesRows = quote.items.map((item) => {
+    const share =
+      quote.total > 0 ? item.line_total / quote.total : 1 / quote.items.length;
+    return {
+      quote_id: quoteRow.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      client_name: quote.client_name,
+      client_phone: quote.client_phone || null,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      total: item.line_total,
+      amount_paid: Math.round(quote.amount_paid * share),
+      amount_owed: Math.round(quote.amount_owed * share),
+      payment_method: quote.payment_method || null,
+      status: quote.payment_status,
+      notes: quote.notes || null,
+    };
+  });
+
+  const { error: salesError } = await supabase.from("sales").insert(salesRows);
+  if (salesError) {
+    console.error("Error saving sales:", salesError.message);
+  }
+
+  // Solo descuenta inventario si ya hay pago
   if (applyStock) {
-    const salesRows = quote.items.map((item) => {
-      const share =
-        quote.total > 0 ? item.line_total / quote.total : 1 / quote.items.length;
-      return {
-        quote_id: quoteRow.id,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        client_name: quote.client_name,
-        client_phone: quote.client_phone || null,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total: item.line_total,
-        amount_paid: Math.round(quote.amount_paid * share),
-        amount_owed: Math.round(quote.amount_owed * share),
-        payment_method: quote.payment_method || null,
-        status: quote.payment_status,
-        notes: quote.notes || null,
-      };
-    });
-
-    await supabase.from("sales").insert(salesRows);
-
     for (const item of quote.items) {
       const { data: product } = await supabase
         .from("products")
@@ -248,8 +252,27 @@ export async function updateQuotePayment(params: {
 
   if (error) return error.message;
 
-  if (params.applyStock) {
-    const lineSum = params.items.reduce((s, i) => s + i.line_total, 0) || 1;
+  // Actualiza ventas ligadas a esta cotización (control en tiempo real)
+  const lineSum = params.items.reduce((s, i) => s + i.line_total, 0) || 1;
+  const { data: existingSales } = await supabase
+    .from("sales")
+    .select("id, total")
+    .eq("quote_id", params.quoteId);
+
+  if (existingSales && existingSales.length > 0) {
+    for (const sale of existingSales) {
+      const share = (Number(sale.total) || 0) / lineSum;
+      await supabase
+        .from("sales")
+        .update({
+          status: params.payment_status,
+          amount_paid: Math.round(params.amount_paid * share),
+          amount_owed: Math.round(params.amount_owed * share),
+          payment_method: params.payment_method || null,
+        })
+        .eq("id", sale.id);
+    }
+  } else {
     const salesRows = params.items.map((item) => {
       const share = item.line_total / lineSum;
       return {
@@ -267,9 +290,10 @@ export async function updateQuotePayment(params: {
         status: params.payment_status,
       };
     });
-
     await supabase.from("sales").insert(salesRows);
+  }
 
+  if (params.applyStock) {
     for (const item of params.items) {
       if (!item.product_id) continue;
       const { data: product } = await supabase
@@ -288,6 +312,50 @@ export async function updateQuotePayment(params: {
   }
 
   return null;
+}
+
+export async function deleteQuote(quote: QuoteRecord): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "Supabase no configurado";
+
+  // Si se había descontado stock, lo devolvemos
+  if (quote.stock_applied) {
+    for (const item of quote.quote_items ?? []) {
+      if (!item.product_id) continue;
+      const { data: product } = await supabase
+        .from("products")
+        .select("stock")
+        .eq("id", item.product_id)
+        .single();
+      if (product) {
+        const current = Number(product.stock) || 0;
+        await supabase
+          .from("products")
+          .update({ stock: current + item.quantity })
+          .eq("id", item.product_id);
+      }
+    }
+  }
+
+  // Borra ventas asociadas
+  const { error: salesError } = await supabase
+    .from("sales")
+    .delete()
+    .eq("quote_id", quote.id);
+  if (salesError) return salesError.message;
+
+  // quote_items se borran por CASCADE si está configurado; si no, borrar manual
+  await supabase.from("quote_items").delete().eq("quote_id", quote.id);
+
+  const { error } = await supabase.from("quotes").delete().eq("id", quote.id);
+  return error?.message ?? null;
+}
+
+export async function deleteSale(saleId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return "Supabase no configurado";
+  const { error } = await supabase.from("sales").delete().eq("id", saleId);
+  return error?.message ?? null;
 }
 
 export async function fetchSales(): Promise<{

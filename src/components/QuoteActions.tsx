@@ -170,7 +170,7 @@ export function QuoteActions({
         paymentStatus === "pagado" || paymentStatus === "parcial"
           ? " Inventario descontado."
           : "";
-      setMessage(`Cotización guardada en el historial.${stockNote}`);
+      setMessage(`Cotización guardada en historial y en Ventas/pagos.${stockNote}`);
       onSaved?.();
     } else {
       setMessage(
@@ -318,7 +318,7 @@ export function QuoteActions({
             ) : (
               <Save className="h-4 w-4" />
             )}
-            Guardar en historial
+            Guardar en historial y ventas
           </button>
 
           <button

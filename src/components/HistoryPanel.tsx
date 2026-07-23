@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  deleteQuote,
+  deleteSale,
   fetchQuotes,
   fetchSales,
   updateQuotePayment,
@@ -11,7 +13,7 @@ import {
   formatCurrency,
   paymentStatusLabel,
 } from "@/lib/types";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 function statusClass(status: PaymentStatus) {
@@ -118,6 +120,39 @@ export function HistoryPanel() {
           ? `Cotización marcada pagada por ${method} e inventario descontado`
           : `Cotización marcada pagada por ${method}`
       );
+      await load();
+    }
+    setUpdatingId(null);
+  };
+
+  const handleDeleteQuote = async (quote: QuoteRecord) => {
+    const ok = window.confirm(
+      `¿Borrar la cotización de ${quote.client_name}?\nTambién se quitará de Ventas/pagos` +
+        (quote.stock_applied ? " y se devolverá el stock." : ".")
+    );
+    if (!ok) return;
+    setUpdatingId(quote.id);
+    setMessage(null);
+    const err = await deleteQuote(quote);
+    if (err) setMessage(`Error al borrar: ${err}`);
+    else {
+      setMessage("Cotización borrada");
+      await load();
+    }
+    setUpdatingId(null);
+  };
+
+  const handleDeleteSale = async (sale: SaleRecord) => {
+    const ok = window.confirm(
+      `¿Borrar la venta de ${sale.client_name} — ${sale.product_name}?`
+    );
+    if (!ok) return;
+    setUpdatingId(sale.id);
+    setMessage(null);
+    const err = await deleteSale(sale.id);
+    if (err) setMessage(`Error al borrar: ${err}`);
+    else {
+      setMessage("Venta borrada");
       await load();
     }
     setUpdatingId(null);
@@ -254,30 +289,42 @@ export function HistoryPanel() {
                         </p>
                       )}
                     </div>
-                    {sale.status !== "pagado" && (
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          disabled={updatingId === sale.id}
-                          onClick={() => markSalePaid(sale, "Nequi")}
-                          className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                        >
-                          {updatingId === sale.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            "Pagó Nequi"
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={updatingId === sale.id}
-                          onClick={() => markSalePaid(sale, "Efectivo")}
-                          className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                        >
-                          Pagó Efectivo
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {sale.status !== "pagado" && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={updatingId === sale.id}
+                            onClick={() => markSalePaid(sale, "Nequi")}
+                            className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            {updatingId === sale.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              "Pagó Nequi"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingId === sale.id}
+                            onClick={() => markSalePaid(sale, "Efectivo")}
+                            className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                          >
+                            Pagó Efectivo
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        disabled={updatingId === sale.id}
+                        onClick={() => handleDeleteSale(sale)}
+                        className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50"
+                        aria-label="Borrar venta"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Borrar
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
@@ -333,26 +380,41 @@ export function HistoryPanel() {
                       </p>
                     )}
                   </div>
-                  {quote.payment_status !== "pagado" && (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={updatingId === quote.id}
-                        onClick={() => markQuotePaid(quote, "Nequi")}
-                        className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                      >
-                        Pagó Nequi
-                      </button>
-                      <button
-                        type="button"
-                        disabled={updatingId === quote.id}
-                        onClick={() => markQuotePaid(quote, "Efectivo")}
-                        className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
-                      >
-                        Pagó Efectivo
-                      </button>
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {quote.payment_status !== "pagado" && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={updatingId === quote.id}
+                          onClick={() => markQuotePaid(quote, "Nequi")}
+                          className="rounded-xl bg-purple-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Pagó Nequi
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingId === quote.id}
+                          onClick={() => markQuotePaid(quote, "Efectivo")}
+                          className="rounded-xl bg-green-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                        >
+                          Pagó Efectivo
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      disabled={updatingId === quote.id}
+                      onClick={() => handleDeleteQuote(quote)}
+                      className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 disabled:opacity-50"
+                    >
+                      {updatingId === quote.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3.5 w-3.5" />
+                      )}
+                      Borrar
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}
